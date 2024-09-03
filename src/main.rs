@@ -6,17 +6,26 @@ use std::{
     process::exit,
 };
 
-use structopt::StructOpt;
-
 mod days;
 
 use day::Day;
 use days::*;
 
-#[derive(StructOpt)]
+use clap::Parser;
+
+#[derive(Parser)]
 struct Opt {
-    #[structopt(name = "day")]
-    day: i32,
+    day: String,
+}
+
+impl Opt {
+    fn day(&self) -> Option<i32> {
+        self.day.parse().ok()
+    }
+
+    fn all_days(&self) -> bool {
+        self.day == "all"
+    }
 }
 
 fn default_error_handler<E: Debug, R>(error: E) -> R {
@@ -25,7 +34,7 @@ fn default_error_handler<E: Debug, R>(error: E) -> R {
 }
 
 fn main() {
-    let opt = Opt::from_args();
+    let opt = Opt::parse();
     let mut programs: HashMap<i32, Box<dyn Day>> = HashMap::new();
     programs.insert(1, Box::new(day1::Instance));
     programs.insert(2, Box::new(day2::Instance));
@@ -53,10 +62,28 @@ fn main() {
     programs.insert(24, Box::new(day24::Instance));
     programs.insert(25, Box::new(day25::Instance));
 
+    let days = if opt.all_days() {
+        let mut d: Vec<_> = programs.keys().copied().collect();
+        d.sort();
+        d
+    } else if let Some(day) = opt.day() {
+        vec![day]
+    } else {
+        default_error_handler(format!("Invalid day: {}", opt.day))
+    };
+
+    for day in days {
+        println!("Day {}", day);
+        run_program(day, &programs);
+        println!();
+    }
+}
+
+fn run_program(day: i32, programs: &HashMap<i32, Box<dyn Day>>) {
     let program = programs
-        .get(&opt.day)
-        .unwrap_or_else(|| default_error_handler(format!("Undefined day: {}", opt.day).as_str()));
-    let file_contents: Vec<String> = fs::File::open(format!("input/day{}.txt", opt.day))
+        .get(&day)
+        .unwrap_or_else(|| default_error_handler(format!("Undefined day: {}", day).as_str()));
+    let file_contents: Vec<String> = fs::File::open(format!("input/day{}.txt", day))
         .and_then(|file| BufReader::new(file).lines().collect())
         .unwrap_or_else(default_error_handler);
     let result = program
